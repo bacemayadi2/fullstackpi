@@ -60,8 +60,6 @@ END:VCALENDAR
             <p>Role: {user.role || 'N/A'}</p>
             {user.role === 'jobSeeker' && (
                 <>
-                    <p>Resume: {user.profile?.resume || 'Not uploaded'}</p>
-                    <p>Contact Details: {user.profile?.contactDetails || 'Not provided'}</p>
                     <h3>Job Applications:</h3>
                     <ul>
                         {applications.length ? (
