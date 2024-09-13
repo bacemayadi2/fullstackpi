@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
     email: String,
     password: String,
     role: String,
-    appliedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }] // Store the jobs the user applied for
+    appliedApplications: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Application' }], // Update reference
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

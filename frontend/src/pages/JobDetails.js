@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
-import {jwtDecode} from 'jwt-decode'; // Corrected import from jwt-decode
+import {jwtDecode} from 'jwt-decode';
 
 function JobDetails() {
     const [job, setJob] = useState({});
@@ -10,33 +10,18 @@ function JobDetails() {
     const [selectedCurrency, setSelectedCurrency] = useState('TND');
     const [cvFile, setCvFile] = useState(null);
     const [motivationLetter, setMotivationLetter] = useState(null);
-    const { id } = useParams();
     const [applications, setApplications] = useState([]);
     const [expandedApplicationId, setExpandedApplicationId] = useState(null);
 
-    const fetchApplications = async () => {
-        try {
-            const response = await axios.get(`http://localhost:3000/api/jobs/${id}/applications`);
-            setApplications(response.data);
-        } catch (error) {
-            console.error('Failed to fetch applications:', error);
-        }
-    };
-
-    useEffect(() => {
-        if (userRole === 'hr') {
-            fetchApplications();
-        }
-    }, [userRole]);
+    const { id } = useParams();
 
     useEffect(() => {
         async function fetchJob() {
             try {
                 const response = await axios.get(`http://localhost:3000/api/jobs/${id}`);
                 setJob(response.data);
-
                 if (response.data.salary) {
-                    await convertSalary(response.data.salary, selectedCurrency);
+                    convertSalary(response.data.salary, selectedCurrency);
                 }
             } catch (error) {
                 console.error(error);
@@ -58,6 +43,12 @@ function JobDetails() {
         fetchJob();
         fetchUserRole();
     }, [id, selectedCurrency]);
+
+    useEffect(() => {
+        if (userRole === 'hr') {
+            fetchApplications();
+        }
+    }, [userRole]);
 
     const convertSalary = async (salary, targetCurrency) => {
         if (targetCurrency === 'TND') {
@@ -134,15 +125,80 @@ function JobDetails() {
         setExpandedApplicationId(expandedApplicationId === applicationId ? null : applicationId);
     };
 
+    const generateICalFile = (interviewDate, interviewTime, jobTitle,username) => {
+
+        const icalContent = `
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Your Company//NONSGML v1.0//EN
+BEGIN:VEVENT
+SUMMARY:Interview for ${jobTitle}
+DESCRIPTION:Interview scheduled for ${jobTitle} for the user : ${username}
+
+DTSTART:${interviewDate}T${interviewTime}00
+DTEND:${interviewDate}T${interviewTime}30
+END:VEVENT
+END:VCALENDAR
+        `;
+
+        const blob = new Blob([icalContent], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        return url;
+    };
+
+
+    const handleAcceptApplication = async (applicationId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const config = { headers: { Authorization: `Bearer ${token}` }};
+            await axios.post(`http://localhost:3000/api/jobs/applications/${applicationId}/accept`, {}, config);
+            alert('Application accepted successfully');
+            fetchApplications(); // Refresh the list of applications
+        } catch (error) {
+            console.error('Failed to accept application:', error);
+            alert('Failed to accept application');
+        }
+    };
+
+    const handleScheduleInterview = async (applicationId) => {
+        const interviewDate = prompt('Enter the interview date (YYYY-MM-DD):');
+        const interviewTime = prompt('Enter the interview time (HH:mm):');
+
+        try {
+            const token = localStorage.getItem('token');
+            const config = { headers: { Authorization: `Bearer ${token}` }};
+            const response = await axios.post(`http://localhost:3000/api/jobs/applications/schedule-interview`,
+                { applicationId, interviewDate, interviewTime }, config);
+
+            fetchApplications();
+            alert(response.data.message);
+
+        } catch (error) {
+            console.error('Failed to schedule interview:', error);
+            alert('Failed to schedule interview');
+        }
+    };
+
+    const fetchApplications = async () => {
+        try {
+            const response = await axios.get(`http://localhost:3000/api/jobs/${id}/applications`);
+            setApplications(response.data);
+        } catch (error) {
+            console.error('Failed to fetch applications:', error);
+        }
+    };
+
     return (
         <div className="job-details" style={styles.container}>
-
             <div style={styles.header}>
                 <h1 style={styles.title}>{job.title || 'Job Title Not Available'}</h1>
+
             </div>
+
             <p style={styles.text}><strong>Company:</strong> {job.company || 'Company Not Available'}</p>
             <p style={styles.text}><strong>Location:</strong> {job.location || 'Location Not Available'}</p>
             <p style={styles.text}><strong>Type:</strong> {job.type || 'Job Type Not Available'}</p>
+
             <div style={styles.salaryContainer}>
                 <p style={styles.text}><strong>Salary:</strong> {selectedCurrency === 'TND' ? `${job.salary} TND` : `${convertedSalary} ${selectedCurrency}`}</p>
                 <div style={styles.currencySelector}>
@@ -155,39 +211,56 @@ function JobDetails() {
                     </select>
                 </div>
             </div>
+
             <p style={styles.text}><strong>Description:</strong> {job.description || 'Description Not Available'}</p>
             <p style={styles.text}><strong>Skills Required:</strong> {job.skillsRequired ? job.skillsRequired.join(', ') : 'No skills required'}</p>
+
             {userRole === 'jobSeeker' && (
-                <div>
+                <div style={styles.applySection}>
                     <input type="file" name="cv" onChange={handleFileUpload} accept=".pdf" style={styles.fileInput} />
                     <input type="file" name="motivationLetter" onChange={handleFileUpload} accept=".pdf" style={styles.fileInput} />
-                    <button style={styles.applyButton} onClick={handleApply}>Apply Now</button>
+                    <button onClick={handleApply} style={styles.applyButton}>Apply Now</button>
                 </div>
             )}
 
             {userRole === 'hr' && (
-                <>
-                    <div>
-                        <h2>Applications</h2>
-                        <ul>
-                            {applications.map((application) => (
-                                <li key={application._id}>
-                                    <p onClick={() => toggleExpand(application._id)} style={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                                        {application.user.email}
-                                    </p>
-                                    {expandedApplicationId === application._id && (
-                                        <div style={styles.details}>
-                                            <p><strong>User:</strong> {application.user.name} ({application.user.email})</p>
-                                            <p><strong>CV:</strong> <a href={`http://localhost:3000/${application.cv}`} target="_blank" rel="noopener noreferrer">View CV</a></p>
-                                            <p><strong>Motivation Letter:</strong> <a href={`http://localhost:3000/${application.motivationLetter}`} target="_blank" rel="noopener noreferrer">View Motivation Letter</a></p>
-                                            <p><strong>Applied on:</strong> {new Date(application.applyDate).toLocaleDateString()}</p>
+                <div style={styles.applicationsSection}>
+                    <h2 style={styles.sectionTitle}>Applications</h2>
+                    <ul style={styles.applicationList}>
+                        {applications.map((application) => (
+                            <li key={application._id} style={styles.applicationItem}>
+                                <p onClick={() => toggleExpand(application._id)} style={styles.applicationTitle}>
+                                    {application.user.email}
+                                </p>
+                                {expandedApplicationId === application._id && (
+                                    <div style={styles.applicationDetails}>
+                                        <p><strong>User:</strong> {application.user.name} ({application.user.email})</p>
+                                        <p><strong>CV:</strong> <a href={`http://localhost:3000/${application.cv}`} target="_blank" rel="noopener noreferrer">View CV</a></p>
+                                        <p><strong>Motivation Letter:</strong> <a href={`http://localhost:3000/${application.motivationLetter}`} target="_blank" rel="noopener noreferrer">View Motivation Letter</a></p>
+                                        <p><strong>Applied on:</strong> {new Date(application.applyDate).toLocaleDateString()}</p>
+
+                                        <div style={styles.actionButtons}>
+                                            {application.status === 'Pending' && (
+                                                <button onClick={() => handleAcceptApplication(application._id)} style={styles.acceptButton}>Accept</button>
+                                            )}
+                                            {application.status === 'accepted' && (
+                                                <button onClick={() => handleScheduleInterview(application._id)} style={styles.scheduleButton}>Schedule Interview</button>
+                                            )}
                                         </div>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </>
+
+                                        {application.status === 'interview Scheduled' && (
+                                            <div style={styles.interviewDetails}>
+                                                <p><strong>Interview Date:</strong> {application.interviewDate}</p>
+                                                <p><strong>Interview Time:</strong> {application.interviewTime}</p>
+                                                <a href={generateICalFile(application.interviewDate, application.interviewTime, application.job.title,application.user.email)} download={`interview-${application._id}.ics`} style={styles.downloadLink}>Download Interview Calendar</a>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             )}
         </div>
     );
@@ -203,9 +276,11 @@ const styles = {
         margin: '50px auto',
         fontFamily: 'Arial, sans-serif',
         lineHeight: '1.6',
-        position: 'relative',  // To position the delete button relative to the container
     },
     header: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: '20px',
     },
     title: {
@@ -218,27 +293,43 @@ const styles = {
         backgroundColor: '#e74c3c',
         color: '#fff',
         border: 'none',
-        padding: '8px',
+        padding: '8px 16px',
         fontSize: '16px',
         cursor: 'pointer',
-        position: 'absolute',
-        top: '15px',
-        right: '15px',  // Positions the button at the top-right corner
-        borderRadius: '50%',
+        borderRadius: '5px',
         transition: 'background-color 0.3s ease',
-        width: '30px',
-        height: '30px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    deleteButtonHover: {
-        backgroundColor: '#c0392b',
     },
     text: {
         fontSize: '18px',
         color: '#555',
         marginBottom: '15px',
+    },
+    salaryContainer: {
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: '15px',
+    },
+    currencySelector: {
+        marginLeft: '10px',
+    },
+    select: {
+        padding: '8px',
+        fontSize: '16px',
+        borderRadius: '5px',
+        border: '1px solid #ddd',
+        cursor: 'pointer',
+        backgroundColor: '#f8f8f8',
+        transition: 'border-color 0.3s ease',
+    },
+    applySection: {
+        marginTop: '20px',
+    },
+    fileInput: {
+        margin: '10px 0',
+        padding: '8px',
+        fontSize: '16px',
+        borderRadius: '5px',
+        border: '1px solid #ddd',
     },
     applyButton: {
         backgroundColor: '#3498db',
@@ -250,37 +341,66 @@ const styles = {
         fontSize: '18px',
         transition: 'background-color 0.3s ease',
     },
-    applyButtonHover: {
-        backgroundColor: '#2980b9',
+    applicationsSection: {
+        marginTop: '40px',
     },
-    salaryContainer: {
-        display: 'flex',
-        alignItems: 'center',
+    sectionTitle: {
+        fontSize: '24px',
+        fontWeight: '600',
         marginBottom: '15px',
     },
-    currencySelector: {
-        marginLeft: '10px',
+    applicationList: {
+        listStyleType: 'none',
+        padding: '0',
+        margin: '0',
     },
-    label: {
+    applicationItem: {
+        marginBottom: '20px',
+        borderBottom: '1px solid #eee',
+        paddingBottom: '20px',
+    },
+    applicationTitle: {
         fontSize: '18px',
-        color: '#555',
-    },
-    select: {
-        padding: '8px',
-        fontSize: '16px',
-        borderRadius: '5px',
-        border: '1px solid #ddd',
+        fontWeight: 'bold',
         cursor: 'pointer',
-        backgroundColor: '#f8f8f8',
-        transition: 'border-color 0.3s ease',
     },
-    details: {
+    applicationDetails: {
         marginTop: '10px',
         padding: '10px',
         border: '1px solid #ddd',
         borderRadius: '5px',
         backgroundColor: '#f9f9f9',
     },
+    actionButtons: {
+        marginTop: '10px',
+    },
+    acceptButton: {
+        backgroundColor: '#2ecc71',
+        color: '#fff',
+        border: 'none',
+        padding: '8px 16px',
+        fontSize: '16px',
+        borderRadius: '5px',
+        cursor: 'pointer',
+        marginRight: '10px',
+    },
+    scheduleButton: {
+        backgroundColor: '#3498db',
+        color: '#fff',
+        border: 'none',
+        padding: '8px 16px',
+        fontSize: '16px',
+        borderRadius: '5px',
+        cursor: 'pointer',
+    },
+    interviewDetails: {
+        marginTop: '10px',
+    },
+    downloadLink: {
+        textDecoration: 'none',
+        color: '#007bff',
+        cursor: 'pointer',
+    },
 };
-
 export default JobDetails;
+

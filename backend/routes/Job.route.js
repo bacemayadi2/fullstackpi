@@ -11,6 +11,7 @@ router.get('/:id', jobController.getJobById); // GET /jobs/:id
 router.delete('/:id', jobController.deleteJob);
 router.post('/:id/apply', authMiddleware.authenticateToken, uploadMiddleware, jobController.applyForJob); // Apply for job with CV & motivation letter
 router.get('/:id/applications', jobController.getApplicationsForJob);
-router.patch('  /:id', jobController.modifyJob);
-
+router.patch('/:id', jobController.modifyJob);
+router.post('/applications/:applicationId/accept', jobController.acceptApplication);
+router.post('/applications/schedule-interview', jobController.scheduleInterview);
 module.exports = router;

@@ -66,18 +66,7 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-exports.getUserById = async (req, res) => {
-    try {
-        const user = await User.findById(req.params.userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        res.json(user);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
+
 
 exports.updateUser = async (req, res) => {
     try {
@@ -102,10 +91,15 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
-// backend/controllers/user.controller.js
 exports.getUserById = async (req, res) => {
     try {
-        const user = await User.findById(req.params.userId).populate('appliedJobs');
+        const user = await User.findById(req.params.userId).populate({
+            path: 'appliedApplications',
+            populate: {
+                path: 'job',
+                model: 'Job'
+            }
+        });
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }

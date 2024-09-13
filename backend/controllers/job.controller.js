@@ -2,6 +2,7 @@
 const Job = require('../models/job.model');
 const jwt = require("jsonwebtoken");
 const Application = require('../models/application.model'); // Adjust the path if necessary
+const User = require('../models/user.model'); // Adjust the path as necessary
 
 exports.getJobs = async (req, res) => {
     try {
@@ -14,6 +15,51 @@ exports.getJobs = async (req, res) => {
 };
 
 
+// Accept a specific application
+exports.acceptApplication = async (req, res) => {
+    try {
+        const applicationId = req.params.applicationId;
+        const application = await Application.findById(applicationId).populate('user');
+
+        if (!application) {
+            return res.status(404).json({ error: 'Application not found' });
+        }
+
+        // Update the application status to 'accepted'
+        application.status = 'accepted';
+        await application.save();
+
+        res.json({ message: 'Application accepted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Schedule an interview
+exports.scheduleInterview = async (req, res) => {
+    try {
+        const { applicationId, interviewDate, interviewTime } = req.body;
+        const application = await Application.findById(applicationId).populate('user');
+
+        if (!application) {
+            return res.status(404).json({ error: 'Application not found' });
+        }
+
+        // Update the application status and interview details
+        application.status = 'interview Scheduled';
+        application.interviewDate = interviewDate; // Store the interview date
+        application.interviewTime = interviewTime; // Store the interview time
+        await application.save();
+
+        res.json({ message: 'Interview scheduled successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Apply for a job
 exports.applyForJob = async (req, res) => {
     try {
         const jobId = req.params.id; // Extract job ID from URL
@@ -30,13 +76,18 @@ exports.applyForJob = async (req, res) => {
 
         await application.save();
 
+        const user = await User.findById(userId);
+        if (user) {
+            user.appliedApplications.push(application._id); // Update reference to applications
+            await user.save();
+        }
+
         res.status(201).json({ message: 'Application submitted successfully' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Application submission failed' });
     }
 };
-
 
 exports.postJob = async (req, res) => {
     try {
@@ -89,13 +140,18 @@ exports.deleteJob = async (req, res) => {
 exports.getApplicationsForJob = async (req, res) => {
     try {
         const jobId = req.params.id;
-        const applications = await Application.find({ job: jobId }).populate('user', 'name email'); // Adjust the fields as needed
+        // Populate both the user (with username and email) and the job (with title)
+        const applications = await Application.find({ job: jobId })
+            .populate('user', 'username email') // populate username and email from the user
+            .populate('job', 'title'); // populate title from the job
+
         res.json(applications);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
 
 // E:\pi dev\backend\controllers\job.controller.js
 exports.modifyJob = async (req, res) => {

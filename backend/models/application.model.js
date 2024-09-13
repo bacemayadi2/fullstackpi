@@ -15,6 +15,12 @@ const ApplicationSchema = new mongoose.Schema({
         type: Date,
         required: true,
     },
+    status: {
+        type: String,
+        enum: ['Pending', 'accepted', 'rejected', 'interview Scheduled'], // Example statuses
+        default: 'Pending', // Default value
+        required: true
+    },
     cv: {
         type: String,
         required: true,
@@ -22,6 +28,14 @@ const ApplicationSchema = new mongoose.Schema({
     motivationLetter: {
         type: String,
         required: true,
+    },
+    interviewDate: {
+        type: String, // Use String to store the date in YYYY-MM-DD format
+        required: false
+    },
+    interviewTime: {
+        type: String, // Use String to store the time in HH:mm format
+        required: false
     }
 });
 

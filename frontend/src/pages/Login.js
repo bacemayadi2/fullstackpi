@@ -23,7 +23,7 @@ function Login({ setUser }) {
                 email: decodedToken.email
             });
             console.log(decodedToken);
-            navigate('/dashboard'); // Redirect to dashboard
+            navigate('/home'); // Redirect to dashboard
         } catch (error) {
             console.error('Login failed:', error.response.data);
             alert('Login failed');

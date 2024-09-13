@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link, useHistory  ,useParams, useNavigate } from 'react-router-dom'; // Use to get params and navigate
+import { useParams, useNavigate } from 'react-router-dom'; // Use to get params and navigate
 
 function PostJob() {
     const { id } = useParams(); // Get job ID from URL params, if available
